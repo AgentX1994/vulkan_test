@@ -1,4 +1,10 @@
-pub mod models;
+pub mod context;
+pub mod controller;
+pub mod input;
+pub mod material;
+pub mod mesh;
+pub mod renderer;
+pub mod window;
 
 #[derive(Default, Debug, Copy, Clone, PartialEq)]
 pub struct Vertex {

@@ -21,6 +21,9 @@ struct Material {
 layout(set = 1, binding = 0) uniform light_parameters {
     vec3 view_position;
     Light light;
+};
+
+layout(set = 2, binding = 0) uniform material_parameters {
     Material material;
 };
 
