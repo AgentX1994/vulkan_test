@@ -66,8 +66,7 @@ impl RenderContext {
         let instance = Instance::new(app_info, instance_extensions, layers)?;
         let (physical_device_index, device, mut queues) = {
             let physical_device = PhysicalDevice::enumerate(&instance)
-                .filter(|p| p.supported_features().superset_of(&required_features))
-                .next()
+                .find(|p| p.supported_features().superset_of(&required_features))
                 .ok_or(RenderContextError::NoSupportedDevice)?;
 
             // TODO how to choose queue families?

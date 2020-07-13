@@ -32,10 +32,14 @@ pub mod fs {
 }
 
 pub struct Phong {
-    buffer: Arc<ImmutableBuffer<fs::ty::material_parameters>>,
     pipeline: Arc<dyn GraphicsPipelineAbstract + Send + Sync>,
     material_descriptors: Arc<dyn DescriptorSet + Send + Sync>,
 }
+
+pub type MaterialAndFuture<M> = (
+    Arc<M>,
+    CommandBufferExecFuture<NowFuture, AutoCommandBuffer>,
+);
 
 impl Phong {
     pub fn new(
@@ -45,13 +49,7 @@ impl Phong {
         device: Arc<Device>,
         queue: Arc<Queue>,
         render_pass: Arc<dyn RenderPassAbstract + Send + Sync>,
-    ) -> Result<
-        (
-            Arc<Self>,
-            CommandBufferExecFuture<NowFuture, AutoCommandBuffer>,
-        ),
-        Box<dyn error::Error + Send + Sync>,
-    > {
+    ) -> Result<MaterialAndFuture<Self>, Box<dyn error::Error + Send + Sync>> {
         let vs = vs::Shader::load(device.clone()).expect("failed to create shader module");
         let fs = fs::Shader::load(device.clone()).expect("failed to create shader module");
 
@@ -64,7 +62,7 @@ impl Phong {
                 .fragment_shader(fs.main_entry_point(), ())
                 .depth_stencil_simple_depth()
                 .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
-                .build(device.clone())?,
+                .build(device)?,
         );
 
         let material_uniform_data = fs::ty::material_parameters {
@@ -78,20 +76,20 @@ impl Phong {
             },
         };
 
-        let (buffer, future) =
-            ImmutableBuffer::from_data(material_uniform_data, BufferUsage::all(), queue)?;
+        let (buffer, future) = ImmutableBuffer::from_data(
+            material_uniform_data,
+            BufferUsage::uniform_buffer(),
+            queue,
+        )?;
 
         let layout = pipeline.descriptor_set_layout(2).unwrap();
         let material_descriptors = Arc::new(
             PersistentDescriptorSet::start(layout.clone())
-                .add_buffer(buffer.clone())
-                .unwrap()
-                .build()
-                .unwrap(),
+                .add_buffer(buffer)?
+                .build()?,
         );
 
         let phong = Arc::new(Phong {
-            buffer,
             pipeline,
             material_descriptors,
         });
@@ -102,10 +100,10 @@ impl Phong {
 
 impl Material for Phong {
     fn pipeline(&self) -> Arc<dyn GraphicsPipelineAbstract + Send + Sync> {
-        return self.pipeline.clone();
+        self.pipeline.clone()
     }
     fn material_descriptors(&self) -> Arc<dyn DescriptorSet + Send + Sync> {
-        return self.material_descriptors.clone();
+        self.material_descriptors.clone()
     }
 
     fn get_view_layout(&self) -> Arc<UnsafeDescriptorSetLayout> {

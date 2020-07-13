@@ -40,10 +40,9 @@ fn window_size_dependent_setup(
 
     dynamic_state.viewports = Some(vec![viewport]);
 
-    let depth_buffer =
-        AttachmentImage::transient(device.clone(), dimensions, Format::D32Sfloat).unwrap();
+    let depth_buffer = AttachmentImage::transient(device, dimensions, Format::D32Sfloat).unwrap();
 
-    let framebuffers = images
+    images
         .iter()
         .map(|image| {
             Arc::new(
@@ -56,9 +55,7 @@ fn window_size_dependent_setup(
                     .unwrap(),
             ) as Arc<dyn FramebufferAbstract + Send + Sync>
         })
-        .collect::<Vec<_>>();
-
-    framebuffers
+        .collect::<Vec<_>>()
 }
 
 #[derive(Debug)]
@@ -269,7 +266,7 @@ impl Renderer {
             .join(acquire_future)
             .then_execute(queue.clone(), command_buffer)
             .unwrap()
-            .then_swapchain_present(queue.clone(), self.swapchain.clone(), image_num)
+            .then_swapchain_present(queue, self.swapchain.clone(), image_num)
             .then_signal_fence_and_flush();
 
         match future {

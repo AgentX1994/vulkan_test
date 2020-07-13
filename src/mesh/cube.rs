@@ -158,15 +158,15 @@ impl Cube {
             device.clone(),
             BufferUsage::all(),
             false,
-            VERTICES.iter().map(|&x| x),
+            VERTICES.iter().copied(),
         )
         .unwrap();
 
         let index_buffer = CpuAccessibleBuffer::from_iter(
-            device.clone(),
+            device,
             BufferUsage::all(),
             false,
-            INDICES.iter().map(|&x| x),
+            INDICES.iter().copied(),
         )
         .unwrap();
         Cube {

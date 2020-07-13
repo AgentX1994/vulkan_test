@@ -1,3 +1,4 @@
+#![windows_subsystem = "windows"]
 use std::error;
 
 use vulkan_test::controller::Controller;

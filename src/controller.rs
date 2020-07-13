@@ -3,6 +3,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Instant;
 
+use crate::camera::{Camera, CameraMoveDirection};
 use crate::context::RenderContext;
 use crate::input::InputHandler;
 use crate::material::phong::Phong;
@@ -24,7 +25,6 @@ pub struct Controller {
     context: Arc<RenderContext>,
     surface: Arc<Surface<Window>>,
     input_handler: Arc<Mutex<InputHandler>>,
-    running: bool,
 }
 
 impl Controller {
@@ -50,7 +50,6 @@ impl Controller {
             context,
             surface,
             input_handler: InputHandler::new(),
-            running: false,
         };
         controller.run(window)
     }
@@ -66,11 +65,10 @@ impl Controller {
                 .handle_event(e, c);
         });
 
-        // Make type checker happy, even if we shouldn't get here
-        t.join().unwrap()
+        t.join().expect("Could not join subthread!")
     }
 
-    fn run_internal(mut self) -> Result<(), Box<dyn error::Error + Send + Sync>> {
+    fn run_internal(self) -> Result<(), Box<dyn error::Error + Send + Sync>> {
         let queue = self.context.queue();
 
         let mut renderer = Renderer::new(self.context.clone(), self.surface.clone())?;
@@ -80,14 +78,20 @@ impl Controller {
             glm::vec3(0.1, 0.4, 0.8),
             glm::vec3(1.0, 1.0, 1.0),
             self.context.device(),
-            queue.clone(),
+            queue,
             renderer.render_pass(),
         )?;
 
         let cube = Cube::new(self.context.device(), phong_material.clone());
+        let mut camera = Camera::new(
+            glm::vec3(0.0, 0.0, 5.0),
+            glm::vec3(0.0, 1.0, 0.0),
+            -90.0f32,
+            0.0f32,
+        );
 
         // for timing
-        let start_time = Instant::now();
+        let mut last_frame_time = Instant::now();
 
         // for uniforms
         let view_uniform_buffer_pool = CpuBufferPool::uniform_buffer(self.context.device());
@@ -95,38 +99,55 @@ impl Controller {
 
         let mut aspect_ratio = 1280.0f32 / 1024.0f32;
 
-        self.running = true;
         let mut previous_frame_end = Some(future.boxed());
-        while self.running {
+        loop {
             let input = self
                 .input_handler
                 .lock()
                 .expect("could not lock input handler")
                 .poll();
 
+            if input.exiting {
+                break;
+            }
+
             if let Some(size) = input.resized {
                 aspect_ratio = size.width as f32 / size.height as f32;
                 renderer.resized();
             }
 
-            // Calculate view
-            let elapsed_time = start_time.elapsed();
-            let elapsed_time_secs = elapsed_time.as_secs_f32();
-            let camera_pos = glm::vec3(
-                2.0 * elapsed_time_secs.cos(),
-                2.0f32,
-                2.0 * elapsed_time_secs.sin(),
-            );
+            let delta_time = last_frame_time.elapsed().as_secs_f32();
+            last_frame_time = Instant::now();
 
-            let projection = glm::perspective(aspect_ratio, 45.0, 0.1, 100.0);
+            if input.focused {
+                if input.move_forward_pressed {
+                    camera.move_camera(CameraMoveDirection::FORWARD, delta_time);
+                }
+                if input.move_backward_pressed {
+                    camera.move_camera(CameraMoveDirection::BACKWARD, delta_time);
+                }
+                if input.move_left_pressed {
+                    camera.move_camera(CameraMoveDirection::LEFT, delta_time);
+                }
+                if input.move_right_pressed {
+                    camera.move_camera(CameraMoveDirection::RIGHT, delta_time);
+                }
+                if input.move_up_pressed {
+                    camera.move_camera(CameraMoveDirection::UP, delta_time);
+                }
+                if input.move_down_pressed {
+                    camera.move_camera(CameraMoveDirection::DOWN, delta_time);
+                }
+                let (x_offset, y_offset) = input.cursor_offset;
+                camera.turn_camera(x_offset as f32, y_offset as f32);
+                camera.zoom_camera(input.mouse_wheel_delta as f32);
+            }
+
+            let projection = glm::perspective(aspect_ratio, camera.zoom(), 0.1, 100.0);
 
             // Vulkan requires us to reverse the y axis for some reason
             // Do this by setting up to -1
-            let view = glm::look_at(
-                &camera_pos,
-                &glm::vec3(0.0, 0.0, 0.0),
-                &glm::vec3(0.0, -1.0, 0.0),
-            );
+            let view = camera.get_view_matrix();
 
             let should_print = false;
             if should_print {
@@ -147,7 +168,7 @@ impl Controller {
                     "{:10},{:10},{:10},{:10}]",
                     view[3], view[7], view[11], view[15]
                 );
-                println!("");
+                println!();
                 println!("projection: ");
                 println!(
                     "[{:10},{:10},{:10},{:10},",
@@ -185,7 +206,7 @@ impl Controller {
             );
 
             let lighting_uniform_data = crate::material::phong::fs::ty::light_parameters {
-                view_position: camera_pos.into(),
+                view_position: camera.position().into(),
                 light: crate::material::phong::fs::ty::Light {
                     position: glm::vec3(2.0, 1.1, 0.0).into(),
                     ambient: glm::vec3(0.2, 0.2, 0.2).into(),
@@ -214,6 +235,11 @@ impl Controller {
             previous_frame_end =
                 renderer.render(&cube, camera_set, lighting_set, previous_frame_end);
         }
+
+        self.input_handler
+            .lock()
+            .expect("Unable to lock input mutex")
+            .request_exit();
 
         Ok(())
     }
