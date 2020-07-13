@@ -14,7 +14,7 @@ pub struct RenderWindow {
 }
 
 impl RenderWindow {
-    pub fn new(instance: Arc<Instance>) -> Self {
+    pub fn new<T: AsRef<str>>(title: T, instance: Arc<Instance>) -> Self {
         let event_loop = EventLoop::new();
         let surface = WindowBuilder::new()
             .build_vk_surface(&event_loop, instance)
@@ -25,6 +25,7 @@ impl RenderWindow {
             .set_cursor_grab(true)
             .expect("Could not grab cursor!");
         window.set_cursor_visible(false);
+        window.set_title(title.as_ref());
 
         RenderWindow {
             event_loop,

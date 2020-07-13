@@ -43,7 +43,11 @@ impl Controller {
             vec![],
         )?;
 
-        let window = RenderWindow::new(context.instance());
+        let title = app_info
+            .application_name
+            .map(|cow| cow.into_owned())
+            .unwrap_or("Unknown App".to_string());
+        let window = RenderWindow::new(title, context.instance());
         let surface = window.surface();
 
         let controller = Controller {
