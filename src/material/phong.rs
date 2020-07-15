@@ -61,6 +61,8 @@ impl Phong {
                 .viewports_dynamic_scissors_irrelevant(1)
                 .fragment_shader(fs.main_entry_point(), ())
                 .depth_stencil_simple_depth()
+                .front_face_counter_clockwise()
+                .cull_mode_back()
                 .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
                 .build(device)?,
         );
