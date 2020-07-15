@@ -18,12 +18,12 @@ struct Material {
     float shininess;
 };
 
-layout(set = 1, binding = 0) uniform light_parameters {
+layout(set = 2, binding = 0) uniform light_parameters {
     vec3 view_position;
     Light light;
 };
 
-layout(set = 2, binding = 0) uniform material_parameters {
+layout(set = 3, binding = 0) uniform material_parameters {
     Material material;
 };
 

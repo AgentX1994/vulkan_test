@@ -82,7 +82,7 @@ impl Phong {
             queue,
         )?;
 
-        let layout = pipeline.descriptor_set_layout(2).unwrap();
+        let layout = pipeline.descriptor_set_layout(3).unwrap();
         let material_descriptors = Arc::new(
             PersistentDescriptorSet::start(layout.clone())
                 .add_buffer(buffer)?
@@ -106,10 +106,14 @@ impl Material for Phong {
         self.material_descriptors.clone()
     }
 
+    fn get_world_layout(&self) -> Arc<UnsafeDescriptorSetLayout> {
+        self.pipeline.descriptor_set_layout(1).unwrap().clone()
+    }
+
     fn get_view_layout(&self) -> Arc<UnsafeDescriptorSetLayout> {
         self.pipeline.descriptor_set_layout(0).unwrap().clone()
     }
     fn get_lighting_layout(&self) -> Arc<UnsafeDescriptorSetLayout> {
-        self.pipeline.descriptor_set_layout(1).unwrap().clone()
+        self.pipeline.descriptor_set_layout(2).unwrap().clone()
     }
 }

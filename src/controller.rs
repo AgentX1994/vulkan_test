@@ -10,6 +10,7 @@ use crate::material::phong::Phong;
 use crate::material::Material;
 use crate::mesh::cube::Cube;
 use crate::renderer::Renderer;
+use crate::scene::{SceneGraph, SceneObject};
 use crate::window::RenderWindow;
 
 use nalgebra_glm as glm;
@@ -77,16 +78,51 @@ impl Controller {
 
         let mut renderer = Renderer::new(self.context.clone(), self.surface.clone())?;
 
-        let (phong_material, future) = Phong::new(
-            glm::vec3(1.0, 1.0, 1.0),
+        let (phong_material1, future1) = Phong::new(
             glm::vec3(0.1, 0.4, 0.8),
+            glm::vec3(0.1, 0.4, 0.8),
+            glm::vec3(1.0, 1.0, 1.0),
+            self.context.device(),
+            queue.clone(),
+            renderer.render_pass(),
+        )?;
+
+        let (phong_material2, future2) = Phong::new(
+            glm::vec3(0.8, 0.4, 0.1),
+            glm::vec3(0.8, 0.4, 0.1),
             glm::vec3(1.0, 1.0, 1.0),
             self.context.device(),
             queue,
             renderer.render_pass(),
         )?;
 
-        let cube = Cube::new(self.context.device(), phong_material.clone());
+        let cube_mesh = Cube::new(self.context.device());
+        let scene_object1 = SceneObject::new(
+            self.context.device(),
+            phong_material1.clone(),
+            cube_mesh.clone(),
+        );
+        let scene_object2 = SceneObject::new(
+            self.context.device(),
+            phong_material2.clone(),
+            cube_mesh.clone(),
+        );
+
+        let cube1 = SceneGraph::new(
+            glm::translate(&glm::identity(), &glm::vec3(2.0, 0.0, 0.0)),
+            Some(scene_object1),
+            vec![],
+        );
+        let cube2 = SceneGraph::new(
+            glm::translate(&glm::identity(), &glm::vec3(-2.0, 0.0, 0.0)),
+            Some(scene_object2),
+            vec![],
+        );
+
+        let mut scene_graph = SceneGraph::default();
+        scene_graph.add_child(cube1);
+        scene_graph.add_child(cube2);
+
         let mut camera = Camera::new(
             glm::vec3(0.0, 0.0, 5.0),
             glm::vec3(0.0, 1.0, 0.0),
@@ -103,7 +139,7 @@ impl Controller {
 
         let mut aspect_ratio = 1280.0f32 / 1024.0f32;
 
-        let mut previous_frame_end = Some(future.boxed());
+        let mut previous_frame_end = Some(future1.join(future2).boxed());
         loop {
             let input = self
                 .input_handler
@@ -200,7 +236,7 @@ impl Controller {
             let sub_buffer_view_uniforms =
                 view_uniform_buffer_pool.next(view_uniform_data).unwrap();
 
-            let camera_layout = phong_material.get_view_layout();
+            let camera_layout = phong_material1.get_view_layout();
             let camera_set = Arc::new(
                 PersistentDescriptorSet::start(camera_layout.clone())
                     .add_buffer(sub_buffer_view_uniforms.clone())
@@ -212,7 +248,7 @@ impl Controller {
             let lighting_uniform_data = crate::material::phong::fs::ty::light_parameters {
                 view_position: camera.position().into(),
                 light: crate::material::phong::fs::ty::Light {
-                    position: glm::vec3(2.0, 1.1, 0.0).into(),
+                    position: glm::vec3(0.0, 1.1, 0.0).into(),
                     ambient: glm::vec3(0.2, 0.2, 0.2).into(),
                     diffuse: glm::vec3(1.0, 1.0, 1.0).into(),
                     specular: glm::vec3(1.0, 1.0, 1.0).into(),
@@ -227,7 +263,7 @@ impl Controller {
                 .next(lighting_uniform_data)
                 .unwrap();
 
-            let lighting_layout = phong_material.get_lighting_layout();
+            let lighting_layout = phong_material1.get_lighting_layout();
             let lighting_set = Arc::new(
                 PersistentDescriptorSet::start(lighting_layout.clone())
                     .add_buffer(sub_buffer_lighting_uniforms.clone())
@@ -237,7 +273,11 @@ impl Controller {
             );
 
             previous_frame_end =
-                renderer.render(&cube, camera_set, lighting_set, previous_frame_end);
+                renderer.render(&scene_graph, camera_set, lighting_set, previous_frame_end);
+            previous_frame_end
+                .as_mut()
+                .expect("Could not borrow future as mut")
+                .cleanup_finished();
         }
 
         self.input_handler

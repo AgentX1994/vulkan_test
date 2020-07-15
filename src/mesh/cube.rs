@@ -1,19 +1,13 @@
 use crate::*;
-use std::error;
 use std::sync::Arc;
 
-use vulkano::buffer::{BufferUsage, CpuAccessibleBuffer};
-use vulkano::command_buffer::{AutoCommandBuffer, AutoCommandBufferBuilder, DynamicState};
-use vulkano::descriptor::descriptor_set::DescriptorSet;
-use vulkano::device::{Device, Queue};
-use vulkano::pipeline::GraphicsPipelineAbstract;
+use vulkano::buffer::{BufferAccess, BufferUsage, CpuAccessibleBuffer, TypedBufferAccess};
+use vulkano::device::Device;
 
 use super::Mesh;
-use crate::material::Material;
 
 #[derive(Clone)]
 pub struct Cube {
-    material: Arc<dyn Material>,
     vertex_buffer: Arc<CpuAccessibleBuffer<[Vertex]>>,
     index_buffer: Arc<CpuAccessibleBuffer<[u32]>>,
 }
@@ -153,7 +147,7 @@ const INDICES: [u32; 36] = [
 ];
 
 impl Cube {
-    pub fn new(device: Arc<Device>, material: Arc<dyn Material>) -> Self {
+    pub fn new(device: Arc<Device>) -> Arc<Self> {
         let vertex_buffer = CpuAccessibleBuffer::from_iter(
             device.clone(),
             BufferUsage::all(),
@@ -169,40 +163,22 @@ impl Cube {
             INDICES.iter().copied(),
         )
         .unwrap();
-        Cube {
-            material,
+        Arc::new(Cube {
             vertex_buffer,
             index_buffer,
-        }
+        })
     }
 }
 
 impl Mesh for Cube {
-    fn set_material(&mut self, material: Arc<dyn Material + Send + Sync>) {
-        self.material = material;
+    fn is_indexed(&self) -> bool {
+        true
     }
 
-    fn draw(
-        &self,
-        queue: Arc<Queue>,
-        dynamic_state: &DynamicState,
-        view_set: Arc<dyn DescriptorSet + Send + Sync>,
-        lighting_set: Arc<dyn DescriptorSet + Send + Sync>,
-    ) -> Result<AutoCommandBuffer, Box<dyn error::Error + Send + Sync>> {
-        let pipeline = self.material.pipeline();
-        let mut builder = AutoCommandBufferBuilder::secondary_graphics(
-            pipeline.device().clone(),
-            queue.family(),
-            pipeline.clone().subpass(),
-        )?;
-        builder.draw_indexed(
-            pipeline.clone(),
-            &dynamic_state,
-            vec![self.vertex_buffer.clone()],
-            self.index_buffer.clone(),
-            (view_set, lighting_set, self.material.material_descriptors()),
-            (),
-        )?;
-        Ok(builder.build()?)
+    fn vertex_buffer(&self) -> Arc<dyn BufferAccess + Send + Sync> {
+        self.vertex_buffer.clone()
+    }
+    fn index_buffer(&self) -> Arc<dyn TypedBufferAccess<Content = [u32]> + Send + Sync> {
+        self.index_buffer.clone()
     }
 }

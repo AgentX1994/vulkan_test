@@ -1,10 +1,12 @@
 pub mod camera;
 pub mod context;
 pub mod controller;
+pub mod drawable;
 pub mod input;
 pub mod material;
 pub mod mesh;
 pub mod renderer;
+pub mod scene;
 pub mod utility;
 pub mod window;
 

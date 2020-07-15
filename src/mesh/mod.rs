@@ -1,21 +1,12 @@
 pub mod cube;
 
-use std::error;
 use std::sync::Arc;
 
-use vulkano::command_buffer::{AutoCommandBuffer, DynamicState};
-use vulkano::descriptor::DescriptorSet;
-use vulkano::device::Queue;
-
-use crate::material::Material;
+use vulkano::buffer::{BufferAccess, TypedBufferAccess};
 
 pub trait Mesh {
-    fn set_material(&mut self, material: Arc<dyn Material + Send + Sync>);
-    fn draw(
-        &self,
-        queue: Arc<Queue>,
-        dynamic_state: &DynamicState,
-        view_set: Arc<dyn DescriptorSet + Send + Sync>,
-        lighting_set: Arc<dyn DescriptorSet + Send + Sync>,
-    ) -> Result<AutoCommandBuffer, Box<dyn error::Error + Send + Sync>>;
+    fn is_indexed(&self) -> bool;
+
+    fn vertex_buffer(&self) -> Arc<dyn BufferAccess + Send + Sync>;
+    fn index_buffer(&self) -> Arc<dyn TypedBufferAccess<Content = [u32]> + Send + Sync>;
 }

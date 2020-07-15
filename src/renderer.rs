@@ -2,9 +2,6 @@ use std::error;
 use std::fmt;
 use std::sync::Arc;
 
-use crate::context::RenderContext;
-use crate::mesh::Mesh;
-
 use vulkano::command_buffer::{AutoCommandBufferBuilder, DynamicState};
 use vulkano::descriptor::DescriptorSet;
 use vulkano::device::Device;
@@ -23,6 +20,9 @@ use vulkano::sync;
 use vulkano::sync::{FlushError, GpuFuture};
 
 use winit::window::Window;
+
+use crate::context::RenderContext;
+use crate::scene::SceneGraph;
 
 fn window_size_dependent_setup(
     device: Arc<Device>,
@@ -205,9 +205,9 @@ impl Renderer {
         }
     }
 
-    pub fn render<M: Mesh>(
+    pub fn render(
         &mut self,
-        mesh: &M,
+        scene: &SceneGraph,
         camera_descriptors: Arc<dyn DescriptorSet + Send + Sync>,
         lighting_descriptors: Arc<dyn DescriptorSet + Send + Sync>,
         mut previous_frame_end: Option<Box<dyn GpuFuture>>,
@@ -242,18 +242,20 @@ impl Renderer {
             .begin_render_pass(self.framebuffers[image_num].clone(), false, clear_values)
             .unwrap();
 
-        let sub_command_buffer = mesh
+        let sub_command_buffers = scene
             .draw(
                 queue.clone(),
                 &self.dynamic_state,
                 camera_descriptors,
                 lighting_descriptors,
             )
-            .expect("Could not add mesh draw to cmd buffer");
+            .expect("Could not add scene draw to cmd buffer");
 
         // executing a secondary command buffer is unsafe for now
         unsafe {
-            builder.execute_commands(sub_command_buffer).unwrap();
+            builder
+                .execute_commands_from_vec(sub_command_buffers)
+                .unwrap();
         }
 
         builder.end_render_pass().unwrap();

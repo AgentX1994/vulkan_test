@@ -4,6 +4,7 @@ use vulkano::descriptor::DescriptorSet;
 use vulkano::pipeline::GraphicsPipelineAbstract;
 
 pub trait Material {
+    fn get_world_layout(&self) -> Arc<UnsafeDescriptorSetLayout>;
     fn get_view_layout(&self) -> Arc<UnsafeDescriptorSetLayout>;
     fn get_lighting_layout(&self) -> Arc<UnsafeDescriptorSetLayout>;
     fn pipeline(&self) -> Arc<dyn GraphicsPipelineAbstract + Send + Sync>;
