@@ -47,7 +47,7 @@ impl Controller {
         let title = app_info
             .application_name
             .map(|cow| cow.into_owned())
-            .unwrap_or("Unknown App".to_string());
+            .unwrap_or_else(|| "Unknown App".to_string());
         let window = RenderWindow::new(title, context.instance());
         let surface = window.surface();
 
@@ -82,6 +82,7 @@ impl Controller {
             glm::vec3(0.1, 0.4, 0.8),
             glm::vec3(0.1, 0.4, 0.8),
             glm::vec3(1.0, 1.0, 1.0),
+            50.0f32,
             self.context.device(),
             queue.clone(),
             renderer.render_pass(),
@@ -91,6 +92,7 @@ impl Controller {
             glm::vec3(0.8, 0.4, 0.1),
             glm::vec3(0.8, 0.4, 0.1),
             glm::vec3(1.0, 1.0, 1.0),
+            20.0f32,
             self.context.device(),
             queue,
             renderer.render_pass(),
@@ -102,11 +104,7 @@ impl Controller {
             phong_material1.clone(),
             cube_mesh.clone(),
         );
-        let scene_object2 = SceneObject::new(
-            self.context.device(),
-            phong_material2.clone(),
-            cube_mesh.clone(),
-        );
+        let scene_object2 = SceneObject::new(self.context.device(), phong_material2, cube_mesh);
 
         let cube1 = SceneGraph::new(
             glm::translate(&glm::identity(), &glm::vec3(2.0, 0.0, 0.0)),
